@@ -4,6 +4,8 @@
 import os
 import sys
 import shutil
+
+sys.path.append('../libraries')
 import input_functions as inp_f
 
 # get the argument

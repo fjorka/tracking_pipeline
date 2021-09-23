@@ -8,6 +8,7 @@ import sys
 from skimage.io import imsave
 from cellpose import models
 
+sys.path.append('../libraries')
 import input_functions as inp_f
 
 # get the path to the info file as an argument

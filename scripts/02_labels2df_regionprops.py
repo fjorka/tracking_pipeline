@@ -89,11 +89,11 @@ cellDataAll = pd.concat(cellDataList,ignore_index=True)
 
 # rename columns
 cellDataAll.columns = ['label', 'area', 'centroid-0', 'centroid-1', 'orientation',
-       'major_axis_length', 'minor_axis_length', 'bbox-0', 'bbox-1', 'bbox-2',
-       'bbox-3', 'image', 'mean_intensity-0_nuc', 'mean_intensity-1_nuc',
-       'mean_intensity-2_nuc', 'file', 't', 'centroid-0_ring',
-       'centroid-1_ring', 'mean_intensity-0_ring', 'mean_intensity-1_ring',
-       'mean_intensity-2_ring']
+                       'major_axis_length', 'minor_axis_length', 'bbox-0', 'bbox-1', 
+                       'bbox-2','bbox-3', 'image']+[f'mean_intensity-{x}_nuc' for x in 
+                       np.arange(len(channel_list))]+['file', 't', 'centroid-0_ring',
+                       'centroid-1_ring'] +[f'mean_intensity-{x}_ring' for x in np.arange(len(channel_list))]
+
 
 # add info
 cellDataAll['size_x'] = labels_2D.shape[0]
