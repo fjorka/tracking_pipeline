@@ -306,6 +306,26 @@ def read_df_info(info_lines):
     
     return exp_dir,df_name
 
+def read_frames_2_exclude(info_lines):
+    
+    '''
+    Function to read df based on info_file
+    input:
+        info lines
+    output:
+        frames_to_exclude
+    '''        
+
+    frames_to_exclude = []
+
+    for ind,inf_l in enumerate(info_lines):
+    
+        if 'frames_to_exclude' in inf_l:
+    
+            frames_to_exclude = clean_string(info_lines[ind+1])
+    
+    return frames_to_exclude
+
 def read_settings(info_lines):
     
     '''
@@ -378,8 +398,11 @@ def open_movie(im_path,c):
         
         for i in range(frame_num):
             
-            temp_im = temp_reader.get_frame_2D(c=c, t=i)
-            im.append(temp_im)
+            try:
+                temp_im = temp_reader.get_frame_2D(c=c, t=i)
+                im.append(temp_im)
+            except KeyError: # in case more frames are reported than available
+                pass
 
         im = np.moveaxis(im,0,2)
 

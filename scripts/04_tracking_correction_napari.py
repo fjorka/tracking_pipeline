@@ -14,6 +14,7 @@ from napari import Viewer
 from magicgui.widgets import Container
 from magicgui import magicgui
 
+sys.path.append('../libraries')
 import general_functions as gen
 import napari_build_viewer as bv_f
 import input_functions as inp_f

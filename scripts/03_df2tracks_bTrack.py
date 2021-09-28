@@ -25,7 +25,7 @@ exp_dir,df_name = inp_f.read_df_info(info_lines)
 df_dir = os.path.join(exp_dir,'df')
 save_dir = df_dir
 
-modelPath = os.path.join(exp_dir,'code','cell_config.json')
+modelPath = os.path.join(exp_dir,'code','libraries','cell_config.json')
 
 # ## Read in the data frame objects data
 data_df = pd.read_pickle(os.path.join(df_dir,df_name))
