@@ -24,7 +24,7 @@ def update_dataFrame(channel_list,my_labels,df,current_frame,active_label,object
     
     input:
         channel_list
-        my_labels
+        my_labels - sent as a layer from the viewer
         df
         current_frame
         active_label
@@ -52,7 +52,8 @@ def update_dataFrame(channel_list,my_labels,df,current_frame,active_label,object
     ringData = characterize_newRing(single_label_ring,signal_image)
     
     # put data frames together
-    df = mod_dataFrame(df,cellData,ringData,current_frame)
+    labels_set = np.unique(my_labels[current_frame,:,:])
+    df = mod_dataFrame(df,cellData,ringData,current_frame,labels_set)
     
     return df
 def create_singleLabel(my_labels,current_frame,active_label):
@@ -180,6 +181,7 @@ def mod_dataFrame(df,cellData,ringData,current_frame,labels_set):
         cellData
         ringData
         current_frame
+        labels_set - set of labels present in the current frame
         
     output:
         df - modified general data frame
@@ -212,15 +214,24 @@ def mod_dataFrame(df,cellData,ringData,current_frame,labels_set):
     
        
     # swap in the general data frame
-    what_to_drop = ((df.t==current_frame) & (df.track_id==active_label))
-    drop_overlaping_neighbours = ((df.t==current_frame) & (abs(df['centroid-0']-cellData['centroid-0'][0])<10) & (abs(df['centroid-1']-cellData['centroid-1'][0])<10))
-    what_to_drop =(what_to_drop | drop_overlaping_neighbours)
+    curr_df = df.loc[df.t==current_frame,:]
     
-    df.drop(df[what_to_drop].index,axis=0,inplace=True)
+    drop_modified = (curr_df.track_id==active_label)
     
-
-    df = df.append(cellData,ignore_index=True)
+    # close overlaping objects
+    #drop_overlaping_neighbours = ((abs(df['centroid-0']-cellData['centroid-0'][0])<10) & (abs(df['centroid-1']-cellData['centroid-1'][0])<10))
     
+    # objects that were removed
+    drop_missing = [not(x in labels_set) for x in curr_df.track_id]
+    
+    what_to_drop = (drop_modified | drop_missing)
+    
+    curr_df.drop(curr_df[what_to_drop].index,axis=0,inplace=True)
+    curr_df = curr_df.append(cellData,ignore_index=True)
+    
+    # drop current frame 
+    df.drop(df[df.t==current_frame].index,axis=0,inplace=True)
+    df = df.append(curr_df,ignore_index=True)
     
     return df
 
@@ -361,9 +372,9 @@ def trackData_from_df(df,col_list=['promise'],create_graph = False):
             graph = {}
     else:
         # create a dummy in case no data for this layer
-        data = np.array([[0,0,0,0],[0,0,0,0]])
-        properties = None
-        graph = None
+        data = np.array([[0,0,0,0],[0,1,0,0]])
+        properties = {'t':[0,1], 'generation':[0,0], 'root':[0,0], 'parent':[0,0], 'state':[5,5]}
+        graph = {}
 
     return data,properties,graph
 

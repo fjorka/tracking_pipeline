@@ -64,6 +64,11 @@ def create_graph_widget(graph_list,df,current_track):
     ax_number = len(graph_list)
     static_ax = mpl_widget.figure.subplots(ax_number,1)
 
+    if type(static_ax) == list:
+        pass
+    else:
+        static_ax = [static_ax]
+
     # populate
     for i,graph in enumerate(graph_list):
         
@@ -79,9 +84,9 @@ def create_graph_widget(graph_list,df,current_track):
         else:
                 static_ax[i].plot(df_sel.t,signal,color=graph['color'])
             
-        static_ax[i].set_title(graph['graph_name'],color='white')
-        static_ax[i].tick_params(axis='x', colors='white')
-        static_ax[i].tick_params(axis='y', colors='white')
+        static_ax[i].set_title(graph['graph_name'],color='black')
+        static_ax[i].tick_params(axis='x', colors='black')
+        static_ax[i].tick_params(axis='y', colors='black')
         static_ax[i].grid(color='0.95')
         
     return mpl_widget
