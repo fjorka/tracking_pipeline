@@ -170,7 +170,7 @@ def characterize_newRing(single_label_ring,signal_image):
     
     return ringData
 
-def mod_dataFrame(df,cellData,ringData,current_frame):
+def mod_dataFrame(df,cellData,ringData,current_frame,labels_set):
     
     '''
     function to modify gneral data frame with updated modified single object data
