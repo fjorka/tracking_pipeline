@@ -596,35 +596,40 @@ def extract_graph_data(graph_list,df_sel):
     for graph in graph_list:
         
         function = graph['function']
-    
-        request_list = []
-        replacement_list = []
-    
-        for key_word in key_words:
-    
-            signal_list = [x.end() for x in re.finditer(f'{key_word}_',function)]
-    
-            for signal in signal_list:
-                
-                # for which channel it's requested
-                ch_number = eval(function[signal])  
-                
-                # get a column name
-                col = f'mean_intensity-{ch_number}_{key_word}'
-    
-                # get data
-                request_list.append(f'{key_word}_{function[signal]}')
-                replacement_list.append(f"df_sel['{col}']")
+
+        if function=='family':
+
+            function_value = np.zeros([len(df_sel),1])
+
+        else:
+            request_list = []
+            replacement_list = []
+        
+            for key_word in key_words:
+        
+                signal_list = [x.end() for x in re.finditer(f'{key_word}_',function)]
+        
+                for signal in signal_list:
+                    
+                    # for which channel it's requested
+                    ch_number = eval(function[signal])  
+                    
+                    # get a column name
+                    col = f'mean_intensity-{ch_number}_{key_word}'
+        
+                    # get data
+                    request_list.append(f'{key_word}_{function[signal]}')
+                    replacement_list.append(f"df_sel['{col}']")
 
 
+                    
+            # translate the function
+            for request_signal,replacement_name in zip(request_list,replacement_list): 
+        
+                function = function.replace(request_signal,replacement_name)
                 
-        # translate the function
-        for request_signal,replacement_name in zip(request_list,replacement_list): 
-    
-            function = function.replace(request_signal,replacement_name)
-            
-        # evaluate the function
-        function_value = eval(function)
+            # evaluate the function
+            function_value = eval(function)
   
  
         # collect results

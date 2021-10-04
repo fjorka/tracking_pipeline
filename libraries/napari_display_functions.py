@@ -64,7 +64,9 @@ def create_graph_widget(graph_list,df,current_track):
     ax_number = len(graph_list)
     static_ax = mpl_widget.figure.subplots(ax_number,1)
 
-    if type(static_ax) == list:
+    print(type(static_ax))
+
+    if type(static_ax) == np.ndarray:
         pass
     else:
         static_ax = [static_ax]

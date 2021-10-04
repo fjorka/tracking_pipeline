@@ -278,7 +278,10 @@ def read_graphs(info_lines,df,channel_list):
             temp_graph = build_graph(info_lines,ind,end_ind)
     
             # check if the graph can be executed
-            check_graph(df,temp_graph,channel_list)
+            if temp_graph['function'] == 'family':
+                pass
+            else:
+                check_graph(df,temp_graph,channel_list)
     
             graph_list.append(temp_graph)
             
