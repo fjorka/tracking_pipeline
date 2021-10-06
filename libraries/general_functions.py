@@ -308,7 +308,7 @@ def newTrack_number(vector):
     
     return newTrack
 
-def trackData_from_df(df,col_list=['promise'],create_graph = False):
+def trackData_from_df(df,col_list=['promise'],create_graph = True):
     
     '''
     Function to extract tracking data from a data frame
@@ -328,7 +328,7 @@ def trackData_from_df(df,col_list=['promise'],create_graph = False):
     #############################################
     
     # avoid objects without tracking data
-    exist_vector = (df['centroid-0']==df['centroid-0'])
+    exist_vector = (df['track_id']==df['track_id'])
     
     # select only objects that have specific labels
     sel_vector = False*len(df)

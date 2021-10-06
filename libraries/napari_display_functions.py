@@ -424,7 +424,7 @@ def update_single_object(viewer,df,channel_list,object_properties,gen_track_colu
     
     return viewer,df
 
-def remove_tags(viewer, df, list_of_tracks,list_of_tags = ['accepted','rejected'],list_of_layers = ['accepted tracks','rejected tracks']):
+def remove_tags(viewer, df, list_of_tracks,list_of_tags = ['accepted','rejected'],list_of_layers = ['Accepted Tracks','Rejected Tracks']):
 
     '''
     Function to remove tags from specified tracks.
