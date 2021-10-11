@@ -9,6 +9,8 @@ import napari
 from matplotlib.backends.backend_qt5agg import FigureCanvas
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
+from ete3 import NodeStyle,Tree,TreeStyle,faces
+import matplotlib
 
 from scipy.spatial import distance_matrix
 import numpy as np
@@ -50,8 +52,7 @@ def display_set(viewer,stack_labels,stack_im_list,channel_list,label_contour=0):
     ###############################
     return viewer
 
-
-def create_graph_widget(graph_list,df,current_track):
+def create_graph_widget(graph_list,df,current_track,viewer):
     
     # select appropriate data
     df_sel = df.loc[df.track_id == current_track,:]
@@ -64,8 +65,6 @@ def create_graph_widget(graph_list,df,current_track):
     ax_number = len(graph_list)
     static_ax = mpl_widget.figure.subplots(ax_number,1)
 
-    print(type(static_ax))
-
     if type(static_ax) == np.ndarray:
         pass
     else:
@@ -73,22 +72,36 @@ def create_graph_widget(graph_list,df,current_track):
 
     # populate
     for i,graph in enumerate(graph_list):
-        
-        signal = results_list[i]
-        
-        # plot from list or a single series
-        if type(signal) == list:
-            
-            for sub_signal in signal:
-        
-                static_ax[i].plot(df_sel.t,sub_signal,color=graph['color'])
-        
+
+        if graph['function']=='family':
+
+            # add an additional leaf to re-scale the graph
+            movie_len = np.max(df['t'])
+            labels_layer = viewer.layers['Labels']
+            family_im = generate_family_image(df,labels_layer,current_track,graph_details=graph)
+
+            static_ax[i].imshow(family_im,extent=[0,movie_len,0,100])
+            static_ax[i].get_yaxis().set_visible(False)
+
         else:
-                static_ax[i].plot(df_sel.t,signal,color=graph['color'])
+        
+            signal = results_list[i]
             
+            # plot from list or a single series
+            if type(signal) == list:
+                
+                for sub_signal in signal:
+            
+                    static_ax[i].plot(df_sel.t,sub_signal,color=graph['color'])
+            
+            else:
+                    static_ax[i].plot(df_sel.t,signal,color=graph['color'])
+                
+            
+            static_ax[i].tick_params(axis='x', colors='black')
+            static_ax[i].tick_params(axis='y', colors='black')
+
         static_ax[i].set_title(graph['graph_name'],color='black')
-        static_ax[i].tick_params(axis='x', colors='black')
-        static_ax[i].tick_params(axis='y', colors='black')
         static_ax[i].grid(color='0.95')
         
     return mpl_widget
@@ -452,3 +465,137 @@ def remove_tags(viewer, df, list_of_tracks,list_of_tags = ['accepted','rejected'
             viewer.layers[my_layer].data = selPoints
     
     return viewer
+
+def node_info(track_ind,df):
+    
+    node_t = df.loc[df.track_id==track_ind,'t']
+    node_start = np.min(node_t)
+    node_stop = np.max(node_t)
+    
+    return node_start,node_stop
+
+def mylayout(node):
+
+    node_name = faces.TextFace(node.name,fsize=2)
+    faces.add_face_to_node(node_name, node, column=0,position = "branch-top")
+
+def generate_tree(paths,df):
+
+    '''
+    Function that changes paths into a Newick tree 
+    '''
+    
+    # define root style
+    style_root = NodeStyle()
+    style_root["size"] = 0
+    style_root["vt_line_color"] = "white"
+    style_root["hz_line_color"] = "white"
+    
+    t=Tree()
+
+    node_list = []
+
+    for sub in paths:
+
+        # creating a root
+        if (len(sub)==1):
+
+            node_start,node_stop = node_info(sub[0],df)
+            node_life = node_stop-node_start
+
+            # add empty trunk
+            if node_start>0:
+
+                t.dist = node_start
+                t.img_style = style_root
+
+            else:
+
+                t.dist = 0 
+                t.img_style = style_root
+
+            temp = t.add_child(name=sub[0],dist=node_life)
+            temp.img_style["size"] = 0
+            temp.img_style["hz_line_width"] = 1
+            exec(f'n{sub[0]} = temp')
+
+            node_list.append(sub[0])
+
+
+        if (len(sub)>1):
+            for node in sub[1:]:
+
+                if not(node in node_list):
+
+                    node_start,node_stop = node_info(node,df)
+                    node_life = node_stop-node_start
+
+                    exec(f'n{node}=n{sub[0]}.add_child(name={node},dist={node_life})')
+                    exec(f'n{node}.img_style["size"] = 0')
+                    exec(f'n{node}.img_style["hz_line_width"] = 1')
+
+                    node_list.append(node)
+
+    # add an additional leaf to re-scale the graph
+    movie_len = np.max(df['t'])
+
+    far_leaf = t.get_farthest_leaf()
+    tree_size = far_leaf[1]+t.dist
+
+    fake_leaf = far_leaf[0].add_child(name='',dist=(movie_len-tree_size))
+    fake_leaf.img_style=style_root  
+    
+    return t
+
+def color_tree(t,labels_layer,color_style):
+    
+    for n in t.traverse():
+    
+        if not(n.name==''):
+            
+            if color_style == 'track':
+                label_color = matplotlib.colors.to_hex(labels_layer.get_color(n.name))
+            else:
+                label_color = 'black'
+            
+            n.img_style["hz_line_color"] = label_color
+            
+    return t
+   
+def render_family_tree(t):
+    
+    ts = TreeStyle()
+    ts.show_scale=False
+    ts.show_leaf_name = False
+    
+    # add names of all branches
+    ts.layout_fn = mylayout
+    
+    ts.branch_vertical_margin = 0.5
+    ts.scale = 1 
+    t.render('family_tree.png',tree_style=ts,w=150,units='mm',dpi=800)
+
+    im = plt.imread('family_tree.png')
+
+    return im
+    
+def generate_family_image(df,labels_layer,current_track,graph_details):
+    
+    # find graph for everyone
+    _,_,graph = gen.trackData_from_df(df,col_list = ['track_id'])
+    
+    # find the root
+    my_root = int(list(df.loc[df.track_id==current_track,'root'])[0])
+    paths=gen.find_all_paths(graph,my_root)
+    
+    # generate the family tree
+    t = generate_tree(paths,df)
+    
+    # color the tree
+    color_style = graph_details['color']
+    t = color_tree(t,labels_layer,color_style)
+                   
+    # render the tree
+    family_im = render_family_tree(t)
+
+    return family_im

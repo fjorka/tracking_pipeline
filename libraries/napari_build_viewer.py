@@ -231,6 +231,7 @@ def update_stack(viewer_stack,active_track):
 def update_graph(viewer_stack,active_track):
     
     global df
+    global viewer
     global graph_list
     global mpl_widget
     
@@ -239,7 +240,7 @@ def update_graph(viewer_stack,active_track):
     viewer_stack.window.remove_dock_widget(h)
         
     # add new graph
-    mpl_widget = my_napari.create_graph_widget(graph_list,df,active_track) 
+    mpl_widget = my_napari.create_graph_widget(graph_list,df,active_track,viewer) 
     h = viewer_stack.window.add_dock_widget(mpl_widget)
    
 def update_stack_button_f(viewer_stack: Viewer):
@@ -321,7 +322,7 @@ def show_stack(viewer: Viewer):
     viewer_stack.layers['Labels'].selected_label = active_label
     
     # init graph
-    mpl_widget = my_napari.create_graph_widget(graph_list,df,active_label) 
+    mpl_widget = my_napari.create_graph_widget(graph_list,df,active_label,viewer) 
     viewer_stack.window.add_dock_widget(mpl_widget)
     
     # calculate offset on x axis
