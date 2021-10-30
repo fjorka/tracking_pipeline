@@ -202,7 +202,7 @@ def merge_track(viewer,df,gen_track_columns):
         
         elif len(merge_to)==0:
     
-            # find the closest object in the previous layer
+            # find the closest object in the previous frame
             object_data = df.loc[((df.track_id == active_label) & (df.t == current_frame)),['centroid-0','centroid-1']].to_numpy()
     
             candidate_objects = df.loc[(df.t == (current_frame-1)),['track_id','centroid-0','centroid-1']]
@@ -257,7 +257,7 @@ def merge_track(viewer,df,gen_track_columns):
                 
                 viewer = remove_tags(viewer, df,[active_label,connTrack])
             
-    
+            viewer.layers['Labels'].selected_label = connTrack
             viewer.status = f'Track {active_label} was merged with {connTrack}.'
             
             #####################################################################
@@ -351,7 +351,7 @@ def connect_track(viewer,df,gen_track_columns):
             
             # find new track number
             newTrack = gen.newTrack_number(df.track_id)
-    
+
             my_labels = gen.forward_labels(my_labels,df,current_frame,active_label,newTrack)    
             viewer.layers['Labels'].data = my_labels
     
@@ -372,7 +372,7 @@ def connect_track(viewer,df,gen_track_columns):
             viewer.layers['Tracking'].properties = properties
             viewer.layers['Tracking'].graph = graph
     
-    
+            viewer.layers['Labels'].selected_label = newTrack
             viewer.status = f'Track {active_label} was merged with {connTrack}.'
     
     else:
