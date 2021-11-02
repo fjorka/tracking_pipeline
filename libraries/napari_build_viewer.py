@@ -7,6 +7,7 @@ Created on Tue Aug 17 12:51:41 2021
 
 import os
 import time
+import numpy as np
 import napari
 from napari import Viewer
 from napari.qt.threading import thread_worker
@@ -357,6 +358,8 @@ def render_tree_view(plot_view,t,viewer):
 
     labels_layer = viewer.layers['Labels']
 
+    y_max = 1
+
     for n in t.traverse():
 
         if n.is_root():
@@ -370,7 +373,8 @@ def render_tree_view(plot_view,t,viewer):
             x2 = n.stop
             x_signal = [x1,x2]
 
-            # get rendered position (y axis)
+            # get rendered position (y axis) 
+            y_max = np.max([n.y,y_max])
             y_signal = [n.y,n.y]
 
             label_color = labels_layer.get_color(node_name)
@@ -390,18 +394,30 @@ def render_tree_view(plot_view,t,viewer):
                     x_signal = [x2,x2]
                     y_signal = [n.y,child.y]
                     plot_view.plot(x_signal, y_signal,pen=pen)
-                
+
+
+    # set limits on axis
+    t_max = viewer.dims.range[0][1]
+    plot_view.setXRange(0, t_max)
+    plot_view.setYRange(0, 1.1*y_max)
+
     return plot_view
 
 def update_lineage_display(event):
+
     
     global plot_widget # it may be possible to extract from napari, at the moment a global thing
     global viewer
+    global time_line
     
     # clear the widget
     plot_view = plot_widget.getItem(0,0)
     plot_view.clear()
     
+    # init family line
+    position = viewer.dims.current_step[0]
+    init_family_line(position)
+
     # get for whom the update will be
     active_label = viewer.layers['Labels'].selected_label
     
@@ -423,3 +439,24 @@ def update_lineage_display(event):
 
     # create view
     plot_view = render_tree_view(plot_view,t,viewer)
+
+def update_family_line(step_event):
+    
+    global time_line
+    
+    slider_pos = step_event.value
+    
+    time_line.setValue(slider_pos)
+
+def init_family_line(position):
+    
+    global plot_widget
+    global time_line
+    global viewer
+
+    plot_view = plot_widget.getItem(0,0)
+    
+    pen = pg.mkPen(color = (255,255,255),xwidth=2)
+    time_line = plot_view.addLine(x=position,pen=pen)
+    
+    viewer.dims.events.current_step.connect(update_family_line)

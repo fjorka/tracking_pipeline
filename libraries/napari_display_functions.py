@@ -156,6 +156,8 @@ def cut_track(viewer,df,gen_track_columns):
     #####################################################################
     # change viewer status
     #####################################################################
+    
+    viewer.layers['Labels'].selected_label = newTrack
     viewer.status = f'Track {active_label} was cut at frame {current_frame}.' 
     
     return viewer,df
@@ -354,6 +356,8 @@ def connect_track(viewer,df,gen_track_columns):
 
             my_labels = gen.forward_labels(my_labels,df,current_frame,active_label,newTrack)    
             viewer.layers['Labels'].data = my_labels
+
+            viewer.layers['Labels'].selected_label = newTrack
     
             #####################################################################
             # modify data frame
@@ -372,7 +376,6 @@ def connect_track(viewer,df,gen_track_columns):
             viewer.layers['Tracking'].properties = properties
             viewer.layers['Tracking'].graph = graph
     
-            viewer.layers['Labels'].selected_label = newTrack
             viewer.status = f'Track {active_label} was merged with {connTrack}.'
     
     else:

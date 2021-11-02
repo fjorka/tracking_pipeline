@@ -552,7 +552,7 @@ def forward_df(df,current_frame,active_label,newTrack,connectTo=0):
             
     
     # get a graph
-    data,properties,graph = trackData_from_df(df)
+    data,properties,graph = trackData_from_df(df,col_list=['t'])
     
     # find kids
     kids_list = []
