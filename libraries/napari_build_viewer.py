@@ -12,6 +12,9 @@ from napari import Viewer
 from napari.qt.threading import thread_worker
 from magicgui import magicgui
 
+import pyqtgraph as pg
+from qtpy.QtWidgets import QVBoxLayout
+
 import napari_display_functions as my_napari
 import general_functions as gen
 import gallery_functions as g_f
@@ -335,3 +338,88 @@ def show_stack(viewer: Viewer):
     update_stack_button = magicgui(update_stack_button_f, call_button='Update Stack')
     viewer_stack.window.add_dock_widget(update_stack_button,area='bottom')
     
+def build_lineage_widget(t_max):
+
+    '''
+    Builds pyqt widget
+    '''
+    
+    global plot_widget
+
+    plot_widget = pg.GraphicsLayoutWidget()
+    plot_view = plot_widget.addPlot(title="Lineage tree", labels={"bottom": "Time"})
+    plot_view.hideAxis("left")
+    plot_view.setXRange(0, t_max)
+
+    return plot_widget
+
+def render_tree_view(plot_view,t,viewer):
+
+    labels_layer = viewer.layers['Labels']
+
+    for n in t.traverse():
+
+        if n.is_root():
+            pass
+        else:
+
+            node_name = n.name
+
+            # get position in time
+            x1 = n.start
+            x2 = n.stop
+            x_signal = [x1,x2]
+
+            # get rendered position (y axis)
+            y_signal = [n.y,n.y]
+
+            label_color = labels_layer.get_color(node_name)
+            pen = pg.mkPen(color=pg.mkColor((label_color*255).astype(int)),width=5)
+
+            plot_view.plot(x_signal, y_signal,pen=pen)
+
+            text_item = pg.TextItem(str(node_name),anchor=(1,1))
+            text_item.setPos(x2,n.y)
+            plot_view.addItem(text_item)
+
+            # check if children are present
+            if len(n.children)>0:
+
+                for child in n.children:
+
+                    x_signal = [x2,x2]
+                    y_signal = [n.y,child.y]
+                    plot_view.plot(x_signal, y_signal,pen=pen)
+                
+    return plot_view
+
+def update_lineage_display(event):
+    
+    global plot_widget # it may be possible to extract from napari, at the moment a global thing
+    global viewer
+    
+    # clear the widget
+    plot_view = plot_widget.getItem(0,0)
+    plot_view.clear()
+    
+    # get for whom the update will be
+    active_label = viewer.layers['Labels'].selected_label
+    
+    # find graph for everyone
+    _,_,graph = gen.trackData_from_df(df,col_list = ['track_id'])
+
+    # find the root
+    my_root = int(list(df.loc[df.track_id==active_label,'root'])[0])
+    paths=gen.find_all_paths(graph,my_root)
+
+    # generate the family tree
+    t = my_napari.generate_tree_min(paths,df)
+    
+    # calculate rendering
+    t_rendering = t.render('family_tree.png')
+    
+    # add positions to the tree
+    t = my_napari.add_y_rendering(t,t_rendering)
+
+    # create view
+    plot_view = render_tree_view(plot_view,t,viewer)

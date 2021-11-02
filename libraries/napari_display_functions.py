@@ -474,7 +474,85 @@ def node_info(track_ind,df):
     
     return node_start,node_stop
 
+def generate_tree_min(paths,df):
+
+    '''
+    Function that changes paths into a Newick tree 
+    '''
+    
+    t=Tree()
+
+    n = 1
+    node_list = []
+
+    for sub in paths:
+
+        # creating a root
+        if (len(sub)==1):
+
+            node_start,node_stop = node_info(sub[0],df)
+            node_life = node_stop - node_start
+
+            # add empty trunk
+            if node_start > 0:
+
+                t.dist = node_start
+
+            else:
+
+                t.dist = 0  
+
+            temp = t.add_child(name=sub[0],dist=node_life)
+            exec(f'n{sub[0]} = temp')
+            exec(f'n{sub[0]}.add_feature("start", {node_start})')
+            exec(f'n{sub[0]}.add_feature("stop", {node_stop})')
+            exec(f'n{sub[0]}.add_feature("n", {n})')
+
+            node_list.append(sub[0])
+            n=n+1
+
+
+        if (len(sub)>1):
+            for node in sub[1:]:
+
+                if not(node in node_list):
+
+                    node_start,node_stop = node_info(node,df)
+                    node_life = node_stop-node_start
+
+                    exec(f'n{node}=n{sub[0]}.add_child(name={node},dist={node_life})')
+                    exec(f'n{node}.add_feature("start", {node_start})')
+                    exec(f'n{node}.add_feature("stop", {node_stop})')
+                    exec(f'n{node}.add_feature("n", {n})')
+                    
+
+                    node_list.append(node)
+                    n=n+1
+
+    return t
+
+def add_y_rendering(t,t_rendering):
+
+    for n in t.traverse():
+
+        if n.is_root():
+            pass
+        else:
+            y1 = t_rendering['node_areas'][n.n][1]
+            y2 = t_rendering['node_areas'][n.n][3]
+            y = (y1+y2)/2
+            n.add_feature('y',y)
+            
+    return t
+
+############################################################################################################################################
+# DEPRECATED
+
 def mylayout(node):
+
+    '''
+    DEPRECATED
+    '''
 
     node_name = faces.TextFace(node.name,fsize=2)
     faces.add_face_to_node(node_name, node, column=0,position = "branch-top")
@@ -482,7 +560,9 @@ def mylayout(node):
 def generate_tree(paths,df):
 
     '''
+    DEPRECATED
     Function that changes paths into a Newick tree 
+    It specifies styles for selected branches.
     '''
     
     # define root style
@@ -537,6 +617,7 @@ def generate_tree(paths,df):
                     node_list.append(node)
 
     # add an additional leaf to re-scale the graph
+
     movie_len = np.max(df['t'])
 
     far_leaf = t.get_farthest_leaf()
@@ -544,10 +625,15 @@ def generate_tree(paths,df):
 
     fake_leaf = far_leaf[0].add_child(name='',dist=(movie_len-tree_size))
     fake_leaf.img_style=style_root  
+
     
     return t
 
 def color_tree(t,labels_layer,color_style):
+
+    '''
+    Deprecated
+    '''
     
     for n in t.traverse():
     
@@ -563,6 +649,10 @@ def color_tree(t,labels_layer,color_style):
     return t
    
 def render_family_tree(t):
+
+    '''
+    Deprecated
+    '''
     
     ts = TreeStyle()
     ts.show_scale=False
@@ -580,6 +670,10 @@ def render_family_tree(t):
     return im
     
 def generate_family_image(df,labels_layer,current_track,graph_details):
+
+    '''
+    Deprecated
+    '''
     
     # find graph for everyone
     _,_,graph = gen.trackData_from_df(df,col_list = ['track_id'])
