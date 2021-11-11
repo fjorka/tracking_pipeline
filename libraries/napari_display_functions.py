@@ -157,7 +157,7 @@ def cut_track(viewer,df,gen_track_columns):
     # change viewer status
     #####################################################################
     
-    viewer.layers['Labels'].selected_label = newTrack
+    viewer.layers['Labels'].selected_label = int(newTrack)
     viewer.status = f'Track {active_label} was cut at frame {current_frame}.' 
     
     return viewer,df
@@ -356,8 +356,6 @@ def connect_track(viewer,df,gen_track_columns):
 
             my_labels = gen.forward_labels(my_labels,df,current_frame,active_label,newTrack)    
             viewer.layers['Labels'].data = my_labels
-
-            viewer.layers['Labels'].selected_label = newTrack
     
             #####################################################################
             # modify data frame
@@ -376,7 +374,8 @@ def connect_track(viewer,df,gen_track_columns):
             viewer.layers['Tracking'].properties = properties
             viewer.layers['Tracking'].graph = graph
     
-            viewer.status = f'Track {active_label} was merged with {connTrack}.'
+            viewer.layers['Labels'].selected_label = int(newTrack)
+            viewer.status = f'Track {active_label} was connected to {connTrack}.'
     
     else:
         viewer.status = 'It is not possible to connect objects from the first frame.'
@@ -674,6 +673,7 @@ def render_family_tree(t):
     
 def generate_family_image(df,labels_layer,current_track,graph_details):
 
+
     '''
     Deprecated
     '''
@@ -696,3 +696,58 @@ def generate_family_image(df,labels_layer,current_track,graph_details):
     family_im = render_family_tree(t)
 
     return family_im
+'''
+def create_graph_widget(graph_list,df,current_track,viewer):
+    
+    # select appropriate data
+    df_sel = df.loc[df.track_id == current_track,:]
+    df_sel = df_sel.sort_values(by='t')
+    results_list = gen.extract_graph_data(graph_list,df_sel)
+
+    # create widget
+    mpl_widget = FigureCanvas(Figure(tight_layout=True))
+
+    ax_number = len(graph_list)
+    static_ax = mpl_widget.figure.subplots(ax_number,1)
+
+    if type(static_ax) == np.ndarray:
+        pass
+    else:
+        static_ax = [static_ax]
+
+    # populate
+    for i,graph in enumerate(graph_list):
+
+        if graph['function']=='family':
+
+            # add an additional leaf to re-scale the graph
+            movie_len = np.max(df['t'])
+            labels_layer = viewer.layers['Labels']
+            family_im = generate_family_image(df,labels_layer,current_track,graph_details=graph)
+
+            static_ax[i].imshow(family_im,extent=[0,movie_len,0,100])
+            static_ax[i].get_yaxis().set_visible(False)
+
+        else:
+        
+            signal = results_list[i]
+            
+            # plot from list or a single series
+            if type(signal) == list:
+                
+                for sub_signal in signal:
+            
+                    static_ax[i].plot(df_sel.t,sub_signal,color=graph['color'])
+            
+            else:
+                    static_ax[i].plot(df_sel.t,signal,color=graph['color'])
+                
+            
+            static_ax[i].tick_params(axis='x', colors='black')
+            static_ax[i].tick_params(axis='y', colors='black')
+
+        static_ax[i].set_title(graph['graph_name'],color='black')
+        static_ax[i].grid(color='0.95')
+        
+    return mpl_widget
+'''
