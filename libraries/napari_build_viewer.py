@@ -9,12 +9,15 @@ import os
 import time
 import numpy as np
 import napari
+import matplotlib
 from napari import Viewer
 from napari.qt.threading import thread_worker
 from magicgui import magicgui
+from magicgui.widgets import Container
 
 import pyqtgraph as pg
 from qtpy.QtWidgets import QVBoxLayout
+from PyQt5.QtCore import Qt
 
 import napari_display_functions as my_napari
 import general_functions as gen
@@ -231,6 +234,68 @@ def build_lineage_widget(t_max):
 
     return plot_widget
 
+def build_small_stack_graph_widget(graph_list,df,current_track):
+
+    global empty_frames_list
+    
+    '''
+    Builds pyqt widget for small stack viewer.
+    '''
+    # select appropriate data
+    df_sel = df.loc[df.track_id == current_track,:]
+    df_sel = df_sel.sort_values(by='t')
+    results_list = gen.extract_graph_data(graph_list,df_sel)
+
+    # find empty frames
+    empty_frames_list = gen.find_empty_frames(df_sel.t)
+
+    # create a widget
+    stack_plot_widget = pg.GraphicsLayoutWidget()
+
+    symbol_list=['o','t','s','d','+']
+
+    # populate
+    for i,graph in enumerate(graph_list):
+
+        signal = results_list[i]
+
+        plot_view = stack_plot_widget.addPlot(title=graph['graph_name'], labels={"bottom": "Time"},col=0,row=i)
+        
+        hex_color = matplotlib.colors.cnames[graph['color']]
+        pen = pg.mkPen(color=hex_color,width=3)
+
+        # mark empty frames
+        pen_empty = pg.mkPen(color = (255,0,0),xwidth=1,style=Qt.DotLine)
+
+        for empty_frame in empty_frames_list:
+            time_line = plot_view.addLine(x=empty_frame,pen=pen_empty)
+
+            
+        # plot from list or a single series
+        if type(signal) == list:
+
+            plot_view.addLegend()
+            
+            graph_ind = 0
+            for sub_signal in signal:
+
+                # extract name from function
+                plot_name = graph['function'][1:-1].split(',')[graph_ind]
+
+                # proper plotting
+                plot_view.plot(np.array(df_sel.t),np.array(sub_signal),pen=pen,symbol=symbol_list[graph_ind],name=plot_name,
+                symbolSize=6, symbolBrush = hex_color,symbolPen=None)
+                
+                graph_ind = graph_ind + 1
+        
+        else:
+                
+            plot_view.plot(np.array(df_sel.t),np.array(signal),pen=pen)
+
+    
+
+    return stack_plot_widget
+
 def render_tree_view(plot_view,t,viewer):
 
     labels_layer = viewer.layers['Labels']
@@ -357,22 +422,21 @@ def update_stack(viewer_stack,active_track):
     
     # display new layers
     my_napari.display_set(viewer_stack,stack_labels,stack_im_list,channel_list,label_contour = label_contour)
-      
-def update_graph(viewer_stack,active_track):
+
+def update_graph_qt(viewer_stack,active_track):
     
     global df
     global viewer
     global graph_list
-    global mpl_widget
+    global stack_plot_widget
     
     # remove previous graph
-    h = viewer_stack.window._dock_widgets['']
-    viewer_stack.window.remove_dock_widget(h)
+    viewer_stack.window.remove_dock_widget(stack_plot_widget)
         
     # add new graph
-    mpl_widget = my_napari.create_graph_widget(graph_list,df,active_track,viewer) 
-    h = viewer_stack.window.add_dock_widget(mpl_widget)
-   
+    stack_plot_widget = build_small_stack_graph_widget(graph_list,df,active_track)
+    viewer_stack.window.add_dock_widget(stack_plot_widget,name='Single Track Data')
+
 def update_stack_button_f(viewer_stack: Viewer):
     
     global viewer
@@ -381,7 +445,7 @@ def update_stack_button_f(viewer_stack: Viewer):
     global small_im_size
     global label_contour
     global df
-    global mpl_widget
+    global small_stack_widget
     global position_line_list
     global graph_offset
 
@@ -391,34 +455,40 @@ def update_stack_button_f(viewer_stack: Viewer):
     update_stack(viewer_stack,active_label)
 
     # update graph
-    update_graph(viewer_stack,active_label) 
+    update_graph_qt(viewer_stack,active_label) 
     
     # calculate offset on x axis
     graph_offset = gen.calculate_graph_offset(df,active_label)
     
     # initiate the position line and connect to the function
-    init_lines(viewer_stack)
+    init_lines_qt(viewer_stack)
 
-def init_lines(viewer_stack):
+def init_lines_qt(viewer_stack):
 
-    global mpl_widget
+    global stack_plot_widget
     global position_line_list
     global graph_offset
     
     x = viewer_stack.dims.current_step[0] + graph_offset  
- 
-    position_line_list = []
-    for lin_num in range(len(mpl_widget.figure.axes)):
-        
-        position_line = mpl_widget.figure.axes[lin_num].axvline(x=x,color='black')
-        position_line_list.append(position_line)
     
-        # connect the function to the dims axis
-        viewer_stack.dims.events.current_step.connect(update_lines)
-    
-def update_lines(step_event):
+    pen = pg.mkPen(color = (255,255,255),xwidth=2)
 
-    global mpl_widget
+    i=0
+    position_line_list = []
+    plot_view = stack_plot_widget.getItem(i,0)
+    while plot_view != None:
+
+        i=i+1
+        position_line = plot_view.addLine(x=x,pen=pen)
+        position_line_list.append(position_line)
+        
+        plot_view = stack_plot_widget.getItem(i,0)
+    
+    viewer_stack.dims.events.current_step.connect(update_lines_qt)
+
+def update_lines_qt(step_event):
+
+    global stack_plot_widget
     global position_line_list
     global graph_offset
 
@@ -427,19 +497,14 @@ def update_lines(step_event):
     
     for position_line in position_line_list:
 
-        current_pos = position_line.get_data()[0][0]
-
-        if slice_num == current_pos:
-            return
-        position_line.set_data([slice_num, slice_num], [0, 1])
-
-        mpl_widget.draw_idle()    
+        position_line.setValue(slice_num)
 
 def show_stack(viewer: Viewer):
     
-    global mpl_widget
+    global stack_plot_widget
     global position_line_list
     global graph_offset
+    global empty_frames_list
     
     # find current track
     active_label = viewer.layers['Labels'].selected_label
@@ -452,18 +517,80 @@ def show_stack(viewer: Viewer):
     viewer_stack.layers['Labels'].selected_label = active_label
     
     # init graph
-    mpl_widget = my_napari.create_graph_widget(graph_list,df,active_label,viewer) 
-    viewer_stack.window.add_dock_widget(mpl_widget)
+    stack_plot_widget = build_small_stack_graph_widget(graph_list,df,active_label)
+    viewer_stack.window.add_dock_widget(stack_plot_widget,name='Signals')
     
     # calculate offset on x axis
     graph_offset = gen.calculate_graph_offset(df,active_label)
     
     # initiate the position line and connect to the function
-    init_lines(viewer_stack)
+    init_lines_qt(viewer_stack)
+
+    # create empty frames navigation
+    backward_empty_button = magicgui(backward_button_f, call_button='<')
+    sync_frames_button = magicgui(sync_frames_f, call_button='<->')
+    forward_empty_button = magicgui(forward_button_f, call_button='>')
+
+    container = Container(widgets=[backward_empty_button,sync_frames_button, forward_empty_button],layout='horizontal',labels=False)
+    viewer_stack.window.add_dock_widget(container,area='left',name='Navigate Frames')
     
     # create an update button and connect to the function
     update_stack_button = magicgui(update_stack_button_f, call_button='Update Stack')
     viewer_stack.window.add_dock_widget(update_stack_button,area='bottom')
+
+def backward_button_f(viewer_stack: Viewer):
+
+    global empty_frames_list
+    global graph_offset
+    global viewer
+
+    current_frame = viewer_stack.dims.current_step[0]
+
+    # find first backward empty frame
+    empty_frames_array = np.array(empty_frames_list) - graph_offset
+
+    if np.sum([empty_frames_array < current_frame])>0:
+        
+        go_empty = empty_frames_array[empty_frames_array < current_frame][-1]
+
+        # set viewer position
+        viewer_stack.dims.set_point(0, go_empty)
+        viewer.dims.set_point(0, go_empty+graph_offset)
+    else:
+        viewer_stack.status = 'No empty frames in this direction.'
+
+    return viewer_stack
+
+def forward_button_f(viewer_stack: Viewer):
+
+    global empty_frames_list
+    global graph_offset
+    global viewer
+
+    current_frame = viewer_stack.dims.current_step[0]
+
+    # find first backward empty frame
+    empty_frames_array = np.array(empty_frames_list) - graph_offset
+    if np.sum([empty_frames_array > current_frame])>0:
+        
+        go_empty = empty_frames_array[empty_frames_array > current_frame][0]
+
+        # set viewer position
+        viewer_stack.dims.set_point(0, go_empty)
+        viewer.dims.set_point(0, go_empty+graph_offset)
+    else:
+        viewer_stack.status = 'No empty frames in this direction.'
+
+    return viewer_stack
+
+def sync_frames_f(viewer_stack:Viewer):
+    
+    global graph_offset
+    global viewer
+
+    current_frame = viewer_stack.dims.current_step[0]
+
+    viewer.dims.set_point(0, current_frame+graph_offset)
 
 ##########################
 # DEPRECATED

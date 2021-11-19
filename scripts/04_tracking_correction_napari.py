@@ -104,12 +104,15 @@ for ind,ch in reversed(list(enumerate(channel_list))):
     
     viewer.add_image(ch['image'],name=ch['channel_name'],colormap=ch['color'],blending='additive')
 
+##### create a plot widget
+t_max = viewer.dims.range[0][1]
+plot_widget = bv_f.build_lineage_widget(t_max)
 
 # ## Build viewer functionality
 
 # inject global variables to the module
 
-global_variables = ['viewer',
+global_variables = ['viewer', 'plot_widget',
                     'exp_dir','df_name','df',
                     'channel_list','graph_list',
                     'object_properties',
@@ -127,17 +130,17 @@ for var in global_variables:
 ######################################################################
 # add saving button
 save_data = magicgui(bv_f.save_data, call_button='Save Data')
-viewer.window.add_dock_widget(save_data,area='right')
+viewer.window.add_dock_widget(save_data,area='right',name='Save Data Frame')
 
 ######################################################################
 # add right-click to make a label active
-select_label = labels_layer.mouse_drag_callbacks.append(bv_f.select_label)
+labels_layer.mouse_drag_callbacks.append(bv_f.select_label)
 
 ######################################################################
 # add label modifications
 
 mod_label = magicgui(bv_f.mod_label,call_button='Modify Label')
-viewer.window.add_dock_widget(mod_label,area='right')
+viewer.window.add_dock_widget(mod_label,area='right',name='Save Single Label')
 
 mod_key = viewer.bind_key('Enter',overwrite=True,func=bv_f.mod_label)
 
@@ -149,7 +152,7 @@ merge_track = magicgui(bv_f.merge_track, call_button='Merge Track')
 connect_track = magicgui(bv_f.connect_track, call_button='Connect Track')
 
 container_tracks = Container(widgets=[cut_track,merge_track,connect_track],labels=False)
-viewer.window.add_dock_widget(container_tracks,area='right') 
+viewer.window.add_dock_widget(container_tracks,area='right',name='Modify Tracks') 
 
 ######################################################################
 # add right-click toggle track tags
@@ -161,7 +164,17 @@ for tag_name in [x['tag_name'] for x in tag_list]:
 # add small stack display button
 
 stack_button = magicgui(bv_f.show_stack, call_button='Show Stack')
-viewer.window.add_dock_widget(stack_button,area='right')
+viewer.window.add_dock_widget(stack_button,area='right',name='Single Track Data')
+
+########################################################################
+# add lineage graph
+viewer.window.add_dock_widget(plot_widget,area='bottom',name='family')
+
+# connect lineage graph update
+labels_layer.events.selected_label.connect(bv_f.update_lineage_display)
+
+# init family line
+bv_f.init_family_line(0)
 
 napari.run()
 
