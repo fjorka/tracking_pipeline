@@ -11,7 +11,7 @@ from nd2reader import ND2Reader
 
 import napari
 from napari import Viewer
-from magicgui.widgets import Container
+from magicgui.widgets import Container,Label,Dropdown
 from magicgui import magicgui
 
 sys.path.append('../libraries')
@@ -37,8 +37,11 @@ df = pd.read_pickle(os.path.join(exp_dir,'df',df_name))
 # get info about the channels
 channel_list = inp_f.read_channels(info_lines,check=True,df=df,exp_dir=exp_dir)
 
-# get info about the tags
+# get info about the tags (annotation of tracks)
 tag_list = inp_f.read_tags(info_lines,df=df)
+
+# get info about the flags (single frame annotations)
+flag_list = inp_f.read_flags(info_lines,df=df)
 
 # get info about what will be plotted
 graph_list = inp_f.read_graphs(info_lines,df,channel_list)
@@ -83,16 +86,8 @@ for ind,ch in enumerate(channel_list):
 
 viewer = napari.Viewer()
 
-# add a labels layer
-labels_layer = viewer.add_labels(labels,name='Labels',opacity = 0.4)
-
 # add a helper layer
 layer_mod = viewer.add_points([],name='Helper Points',face_color='red',ndim=3)
-
-# add a tracking layer
-track_layer=viewer.add_tracks(data, properties=properties,graph=graph,name='Tracking') #graph=graph
-
-track_layer.display_id=True
 
 # add tracks annotations
 for tag,tag_points in zip(tag_list,tag_data): 
@@ -103,6 +98,13 @@ for tag,tag_points in zip(tag_list,tag_data):
 for ind,ch in reversed(list(enumerate(channel_list))):
     
     viewer.add_image(ch['image'],name=ch['channel_name'],colormap=ch['color'],blending='additive')
+
+# add a tracking layer
+track_layer=viewer.add_tracks(data, properties=properties,graph=graph,name='Tracking',color_by='track_id')
+track_layer.display_id=True
+
+# add a labels layer
+labels_layer = viewer.add_labels(labels,name='Labels',opacity = 0.4,blending='additive')
 
 ##### create a plot widget
 t_max = viewer.dims.range[0][1]
@@ -116,7 +118,7 @@ global_variables = ['viewer', 'plot_widget',
                     'exp_dir','df_name','df',
                     'channel_list','graph_list',
                     'object_properties',
-                    'time_threshold',
+                    'time_threshold','flag_list',
                     'tag_list','gen_track_columns',
                     'small_im_size',
                     'label_contour'
@@ -142,7 +144,7 @@ labels_layer.mouse_drag_callbacks.append(bv_f.select_label)
 mod_label = magicgui(bv_f.mod_label,call_button='Modify Label')
 viewer.window.add_dock_widget(mod_label,area='right',name='Save Single Label')
 
-mod_key = viewer.bind_key('Enter',overwrite=True,func=bv_f.mod_label)
+mod_key = viewer.bind_key('Shift-Enter',overwrite=True,func=bv_f.mod_label)
 
 ######################################################################
 # add track modifying buttons
@@ -159,12 +161,41 @@ viewer.window.add_dock_widget(container_tracks,area='right',name='Modify Tracks'
 for tag_name in [x['tag_name'] for x in tag_list]:
     
     viewer.layers[tag_name].mouse_drag_callbacks.append(bv_f.toggle_track)
-    
+
+######################################################################
+# add navigation in the track
+begin_button= magicgui(bv_f.go_to_track_beginning,call_button="<")
+end_button= magicgui(bv_f.go_to_track_end,call_button=">")
+center_button = magicgui(bv_f.center_the_cell,call_button="<>")
+
+c = Container(widgets=[begin_button,center_button, end_button],layout='horizontal',labels=False)
+viewer.window.add_dock_widget(c,area='right',name='Navigate Track')
+
+
 ######################################################################
 # add small stack display button
 
 stack_button = magicgui(bv_f.show_stack, call_button='Show Stack')
 viewer.window.add_dock_widget(stack_button,area='right',name='Single Track Data')
+
+#####################################################################
+# button for next available track
+next_label_button = magicgui(bv_f.next_label, call_button='Next Label')
+viewer.window.add_dock_widget(next_label_button,area='left',name='Next Available Label')
+
+######################################################################
+# add navigation over promising tracks
+promise_list = [int(x) for x in set(df.loc[df.promise==True,'track_id'])]
+promise_list.append(0)
+promise_list.sort()
+
+widget_label_promise = Label(value=f'Number of promising tracks: {(len(promise_list)-1)}', label="Promising tracks:")
+widget_list_promise = Dropdown(choices=promise_list, value = 0)
+bv_f.select_promising_track = widget_list_promise.changed.connect(bv_f.select_promising_track)
+
+prom_c = Container(widgets=[widget_label_promise,widget_list_promise],layout='horizontal',labels=False)
+
+viewer.window.add_dock_widget(prom_c,area='left',name='Choose a promising track')
 
 ########################################################################
 # add lineage graph
@@ -175,6 +206,13 @@ labels_layer.events.selected_label.connect(bv_f.update_lineage_display)
 
 # init family line
 bv_f.init_family_line(0)
+
+# share menu specific elements
+widget_variables=['promise_list','widget_label_promise','widget_list_promise']
+for var in widget_variables:
+    
+    exec(f'bv_f.{var} = {var}')
+
 
 napari.run()
 

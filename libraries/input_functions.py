@@ -252,6 +252,39 @@ def read_tags(info_lines,df):
         
     return(tag_list)
 
+def read_flags(info_lines,df):
+    
+    '''
+    Function to read info about all the requested flags. Flags are annotations of frames 
+    within traces so a flag belongs to a point in time for a given cell.
+    input:
+        handle to file
+    output:
+        flag_list
+    '''
+
+    flag_list = []
+
+    for ind,inf_l in enumerate(info_lines):
+
+        if 'flag_name' in inf_l:
+
+            try:
+                end_ind = info_lines.index('\n',ind)
+            except:
+                end_ind = len(info_lines)
+
+            # create a dictionary for a given channel
+            temp_tag = build_channel(info_lines,ind,end_ind)
+
+            # check if the dictionary matches data frame
+            #check_tag(df,temp_tag)
+
+            # put this channel dictionary in the list
+            flag_list.append(temp_tag)
+        
+    return(flag_list)
+
 def read_graphs(info_lines,df,channel_list):
     
     '''

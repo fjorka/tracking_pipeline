@@ -13,7 +13,7 @@ import matplotlib
 from napari import Viewer
 from napari.qt.threading import thread_worker
 from magicgui import magicgui
-from magicgui.widgets import Container
+from magicgui.widgets import Container, CheckBox
 
 import pyqtgraph as pg
 from qtpy.QtWidgets import QVBoxLayout
@@ -37,6 +37,8 @@ global viewer
 # specify for optional saving
 
 def change_status(message):
+
+    global viewer
     
     viewer.status = message
 
@@ -66,7 +68,7 @@ def save_update():
     
     else:
         
-        message = None
+        message = ' '
         
     return message
 
@@ -121,11 +123,15 @@ def mod_label(viewer: Viewer):
     global channel_list
     global object_properties
     global gen_track_columns
+    global flag_list
 
-    viewer,df = my_napari.update_single_object(viewer,df,channel_list,object_properties,gen_track_columns)
+    viewer,df = my_napari.update_single_object(viewer,df,channel_list,object_properties,gen_track_columns,flag_list)
     
     active_label = viewer.layers['Labels'].selected_label
     viewer.status = f'Label {active_label} has been modified.'
+
+    # trigger modification of the family tree
+    update_lineage_display(None)
     
     # optionally save dataframe
     if should_i_save():
@@ -156,6 +162,9 @@ def toggle_track(layer, event):
     global viewer
     global tag_list
     global gen_track_columns
+    global widget_label_promise
+    global widget_list_promise
+    global promise_list
     
     if(event.button == 2):
     
@@ -213,8 +222,20 @@ def toggle_track(layer, event):
             # change tracks layer
             viewer.layers['Tracking'].data = data
             viewer.layers['Tracking'].properties = properties
-            viewer.layers['Tracking'].graph = graph      
+            viewer.layers['Tracking'].graph = graph 
+            viewer.layers['Tracking'].color_by = 'track_id'     
             
+            ########################################################
+            # modify promising tracks
+            ########################################################
+            promise_list = [int(x) for x in set(df.loc[df.promise==True,'track_id'])]
+            promise_list.append(0)
+            promise_list.sort()
+             
+            widget_label_promise.value = f'Number of promising tracks: {(len(promise_list)-1)}'
+            widget_list_promise.choices = promise_list
+ 
+
             # optionally save dataframe
             if should_i_save():
                 save_update()
@@ -359,7 +380,7 @@ def update_lineage_display(event):
     # get for whom the update will be
     active_label = viewer.layers['Labels'].selected_label
 
-    if active_label > 0:
+    if ((active_label > 0) and (active_label in set(df.track_id))):
     
         # init family line
         position = viewer.dims.current_step[0]
@@ -405,6 +426,79 @@ def init_family_line(position):
     
     viewer.dims.events.current_step.connect(update_family_line)
 
+def go_to_track_beginning():
+    
+    global df
+    global viewer
+    
+    # find the beginning of a track
+    current_track = viewer.layers['Labels'].selected_label
+    t_begin = np.min(df.loc[df.track_id==current_track,'t'])
+
+    # move to the beginning of a track
+    viewer.dims.set_point(0, t_begin)
+
+def go_to_track_end():
+    
+    global df
+    global viewer
+    
+    # find the beginning of a track
+    current_track = viewer.layers['Labels'].selected_label
+    t_stop = np.max(df.loc[df.track_id==current_track,'t'])
+
+    # move to the beginning of a track
+    viewer.dims.set_point(0, t_stop)
+    
+def center_the_cell():
+    
+    global df
+    global viewer
+    
+    # find position of a cell
+    current_track = viewer.layers['Labels'].selected_label
+    current_frame = viewer.dims.current_step[0]
+    
+    x = df.loc[((df.track_id==current_track) & (df.t==current_frame)),'x']
+    
+    if len(x)>0:
+        
+        x = list(x)[0]
+        y = list(df.loc[((df.track_id==current_track) & (df.t==current_frame)),'y'])[0]
+        
+    else:
+        
+        t_begin = np.min(df.loc[df.track_id==current_track,'t'])
+        x = list(df.loc[((df.track_id==current_track) & (df.t==t_begin)),'x'])[0]
+        y = list(df.loc[((df.track_id==current_track) & (df.t==t_begin)),'y'])[0]
+
+        # move the frame (to the beginning of the track)
+        viewer.dims.set_point(0, t_begin)
+        
+    # move the camera   
+    viewer.camera.center = (0,x,y)
+    viewer.camera.zoom = 2
+
+def select_promising_track(val_coming: int):
+
+    global viewer
+    
+    # make selected track active
+    viewer.layers['Labels'].selected_label = val_coming
+
+    # center the selected track
+    center_the_cell()
+
+def next_label():
+    
+    global viewer
+    
+    # find new track number
+    newTrack = gen.newTrack_number(df.track_id)
+    
+    # set new track id
+    viewer.layers['Labels'].selected_label = newTrack
+
 #############################################
 
 def update_stack(viewer_stack,active_track):
@@ -437,6 +531,18 @@ def update_graph_qt(viewer_stack,active_track):
     stack_plot_widget = build_small_stack_graph_widget(graph_list,df,active_track)
     viewer_stack.window.add_dock_widget(stack_plot_widget,name='Single Track Data')
 
+def update_flag_buttons(viewer_stack,active_track):
+
+    global flag_buttons_widget
+    global flag_buttons
+    global flag_list
+
+    viewer_stack.window.remove_dock_widget(flag_buttons_widget)
+
+    # create single frame annotation buttons
+    flag_buttons = create_annotation_options(flag_list)
+    flag_buttons_widget = viewer_stack.window.add_dock_widget(flag_buttons,area='left',name='Annotate Events')
+
 def update_stack_button_f(viewer_stack: Viewer):
     
     global viewer
@@ -448,6 +554,8 @@ def update_stack_button_f(viewer_stack: Viewer):
     global small_stack_widget
     global position_line_list
     global graph_offset
+    global flag_buttons
+    global flag_line_list
 
     active_label = viewer_stack.layers['Labels'].selected_label
 
@@ -462,6 +570,15 @@ def update_stack_button_f(viewer_stack: Viewer):
     
     # initiate the position line and connect to the function
     init_lines_qt(viewer_stack)
+
+    # initiate visualization of single events on the graph
+    flag_line_list = update_lines_flags(active_label)
+
+    # connect flag buttons to slider
+    update_flag_buttons(viewer_stack,active_label)
+
+    # connect flag buttons to slider
+    viewer_stack.dims.events.current_step.connect(update_annotation_buttons)
 
 def init_lines_qt(viewer_stack):
 
@@ -499,17 +616,125 @@ def update_lines_qt(step_event):
 
         position_line.setValue(slice_num)
 
+def clean_lines_flags(flag_line_list):
+
+    global stack_plot_widget
+
+    for widget_plot,flag_line in flag_line_list:
+
+        widget_plot.removeItem(flag_line)
+
+    flag_line_list = []
+
+    return flag_line_list
+
+def get_plots_from_widget(widget):
+
+    i = 0
+    plot_list = []
+    plot_view = widget.getItem(i,0)
+    while plot_view != None:
+
+        i=i+1
+        plot_list.append(plot_view)
+        
+        plot_view = stack_plot_widget.getItem(i,0)
+
+    return plot_list
+
+def update_lines_flags(active_label):
+
+    global stack_plot_widget
+    global graph_offset
+    global flag_list
+
+    # get part of the dataframe
+    df_sel = df.loc[df.track_id==active_label,:]
+
+    # get all the graphs
+    plot_list = get_plots_from_widget(stack_plot_widget)
+
+    ind = 0 
+    flag_line_list = []
+    for flag in flag_list:
+
+        sel_color = flag['flag_color']
+        hex_color = matplotlib.colors.cnames[sel_color]
+
+        pen = pg.mkPen(color = hex_color,xwidth=2)
+        
+        b_column = flag['flag_column']
+        positions = df_sel.loc[df_sel[b_column] == True,'t']
+
+        for pos in positions:
+
+            for widget_plot in plot_list:
+
+                flag_line=widget_plot.addLine(x=pos,pen=pen)
+                flag_line_list.append([widget_plot,flag_line])
+        
+        ind = ind + 1
+
+    return flag_line_list
+    
+def update_annotation_buttons(step_event):
+
+    global graph_offset
+    global df
+    global flag_list
+    global viewer_stack
+    global flag_buttons
+
+    # position in time
+    slice_num = step_event.value[0] + graph_offset
+
+    # current label
+    active_label = viewer_stack.layers['Labels'].selected_label
+    
+    # selected entry
+    sel_vector = ((df.t == slice_num) & (df.track_id == active_label))
+    
+    # if the object exists
+    if(len(list(df.loc[sel_vector,'t'])) > 0):
+
+        ind = 0 
+        for flag in flag_list:
+            
+            b_column = flag['flag_column']
+            flag_buttons[ind].value = list(df.loc[sel_vector,b_column])[0]
+            
+            ind = ind + 1
+    else:
+        ind = 0 
+        for flag in flag_list:
+            
+            b_column = flag['flag_column']
+            flag_buttons[ind].value = False
+            
+            ind = ind + 1
+        
 def show_stack(viewer: Viewer):
     
     global stack_plot_widget
     global position_line_list
     global graph_offset
     global empty_frames_list
+    global df
+    global viewer_stack
+    global flag_buttons
+    global flag_buttons_widget
+    global flag_line_list
     
     # find current track
     active_label = viewer.layers['Labels'].selected_label
     
     # init stack viewer
+    try:
+        viewer_stack.close()
+        # save data
+        save_update()
+    except:
+        pass
     viewer_stack = napari.Viewer()
     update_stack(viewer_stack, active_label)
     
@@ -533,10 +758,72 @@ def show_stack(viewer: Viewer):
 
     container = Container(widgets=[backward_empty_button,sync_frames_button, forward_empty_button],layout='horizontal',labels=False)
     viewer_stack.window.add_dock_widget(container,area='left',name='Navigate Frames')
-    
+
+    # initiate visualization of single events on the graph
+    flag_line_list = update_lines_flags(active_label)
+
+    # create single frame annotation buttons
+    flag_buttons = create_annotation_options(flag_list)
+    flag_buttons_widget = viewer_stack.window.add_dock_widget(flag_buttons,area='left',name='Annotate Events')
+
+    # connect flag buttons to slider
+    viewer_stack.dims.events.current_step.connect(update_annotation_buttons)
+
     # create an update button and connect to the function
     update_stack_button = magicgui(update_stack_button_f, call_button='Update Stack')
     viewer_stack.window.add_dock_widget(update_stack_button,area='bottom')
+
+def create_annotation_options(flag_list):
+
+    w_list = []
+    for flag in flag_list:
+    
+        button = create_annotation_button(flag)
+        w_list.append(button)
+    
+    c = Container(widgets=w_list,labels=False)
+
+    return c
+
+def create_annotation_button(flag):
+    
+    global viewer_stack
+    global graph_offset
+    global df
+    global flag_line_list
+
+    # find current track
+    active_label = viewer_stack.layers['Labels'].selected_label
+       
+    b_name = f"{flag['flag_name']} {flag['flag_color']}".replace(' ','_')
+    b_column = flag['flag_column']
+    b_unique = flag['flag_unique']
+    temp = CheckBox(value=False,name=b_name)
+    
+    @temp.changed.connect
+    def button_changed(event):
+
+        global viewer_stack
+        global flag_line_list
+        
+        t_position = viewer_stack.dims.current_step[0] + graph_offset
+
+        if (b_unique == True and temp.value == True):
+
+            df.loc[df.track_id == active_label,b_column] = False
+        
+        df.loc[((df.t == t_position ) & (df.track_id == active_label)),b_column] = temp.value
+
+        # update the graphs
+        # clean lines
+        flag_line_list = clean_lines_flags(flag_line_list)
+        flag_line_list = update_lines_flags(active_label)
+
+        # optionally save dataframe
+        if should_i_save():
+            save_update()
+        
+    return temp  
 
 def backward_button_f(viewer_stack: Viewer):
 

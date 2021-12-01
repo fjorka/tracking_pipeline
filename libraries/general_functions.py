@@ -16,8 +16,7 @@ from skimage import measure
 
 fov_f = importlib.import_module('ring_functions')
 
-def update_dataFrame(channel_list,my_labels,df,current_frame,active_label,object_properties):
-#def update_dataFrame(myIm,myIm_signal_list,my_labels,df,current_frame,active_label,patch_connection):
+def update_dataFrame(channel_list,my_labels,df,current_frame,active_label,object_properties,flag_list):
     
     '''
     Function to use viewer data to modify data frame with all data (for a specific object in a specific frame)
@@ -53,9 +52,10 @@ def update_dataFrame(channel_list,my_labels,df,current_frame,active_label,object
     
     # put data frames together
     labels_set = np.unique(my_labels[current_frame,:,:])
-    df = mod_dataFrame(df,cellData,ringData,current_frame,labels_set)
+    df = mod_dataFrame(df,cellData,ringData,current_frame,labels_set,flag_list)
     
     return df
+
 def create_singleLabel(my_labels,current_frame,active_label):
     
     '''
@@ -171,7 +171,7 @@ def characterize_newRing(single_label_ring,signal_image):
     
     return ringData
 
-def mod_dataFrame(df,cellData,ringData,current_frame,labels_set):
+def mod_dataFrame(df,cellData,ringData,current_frame,labels_set,flag_list):
     
     '''
     function to modify gneral data frame with updated modified single object data
@@ -196,6 +196,11 @@ def mod_dataFrame(df,cellData,ringData,current_frame,labels_set):
     # add aditional info
     cellData['t'] = current_frame
     cellData['track_id'] = active_label
+
+    # add necessary tags
+    for flag in flag_list:
+        col = flag['flag_column']
+        cellData[col] = False
     
     # collect information about this label and this time point to calculate 
     info_track = df.loc[:,['track_id','parent','root','generation','accepted','promise','rejected']].drop_duplicates()
@@ -638,9 +643,24 @@ def extract_graph_data(graph_list,df_sel):
     return results_list
 
 def calculate_graph_offset(df,current_track):
+
     
     sel_t = df.loc[df.track_id == current_track,'t']
     
     graph_offset = np.min(sel_t)
     
     return graph_offset
+
+def find_empty_frames(t):
+
+    '''
+    Function to find empty frames in a time series.
+    '''
+     
+    t_min = np.min(t)
+    t_max = np.max(t)
+    
+    empty_frames_list = list(set(np.arange(t_min,t_max+1)) - set(t))
+    empty_frames_list.sort()
+
+    return empty_frames_list

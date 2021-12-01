@@ -382,7 +382,7 @@ def connect_track(viewer,df,gen_track_columns):
         
     return viewer,df
 
-def update_single_object(viewer,df,channel_list,object_properties,gen_track_columns):
+def update_single_object(viewer,df,channel_list,object_properties,gen_track_columns,flag_list):
     
     
     # get images of objects
@@ -399,7 +399,7 @@ def update_single_object(viewer,df,channel_list,object_properties,gen_track_colu
     active_label = viewer.layers['Labels'].selected_label
 
     # calculate features of a new cell and store in the general data frame
-    df = gen.update_dataFrame(channel_list,my_labels,df,current_frame,active_label,object_properties)
+    df = gen.update_dataFrame(channel_list,my_labels,df,current_frame,active_label,object_properties,flag_list)
 
     ########################################################
     # modify tracking layer
