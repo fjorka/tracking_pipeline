@@ -124,6 +124,25 @@ def characterize_newNucleus(single_label_im,signal_image,object_properties):
     
     return cellData
 
+def calculate_frame(im,imSize,x,y):
+
+    '''
+    Function that cuts out a small image
+    It takes care of a possible edge problem
+    '''
+    
+    frame = int(imSize/2)
+
+    # calculate max possible frame size
+    x1 = frame + np.min((x-frame),0)
+    y1 = frame + np.min((y-frame),0)
+
+    x2 = frame - (np.max([im.shape[0],x+frame]) - im.shape[0])
+    y2 = frame - (np.max([im.shape[1],y+frame]) - im.shape[1])
+    return x1,x2,y1,y2
+
+
+
 def make_ringImage(single_label_im,x,y,imSize=200):
     
     '''
@@ -136,17 +155,18 @@ def make_ringImage(single_label_im,x,y,imSize=200):
         single_label_ring  
     '''
     
-    myFrame = int(imSize/2)
+    # calculate frame
+    x1,x2,y1,y2 = calculate_frame(single_label_im,imSize,x,y)
     
     # cut small image
-    small_im = single_label_im[x-myFrame:x+myFrame,y-myFrame:y+myFrame]
+    small_im = single_label_im[x-x1:x+x2,y-y1:y+y2]
     
     # change small image into a ring
     rings = fov_f.make_rings(small_im,width=6,gap=1)
     
     # put small rings image back into the whole frame
     single_label_ring = single_label_im.copy()
-    single_label_ring[x-myFrame:x+myFrame,y-myFrame:y+myFrame]=rings
+    single_label_ring[x-x1:x+x2,y-y1:y+y2]=rings
     
     return single_label_ring
     
@@ -196,6 +216,8 @@ def mod_dataFrame(df,cellData,ringData,current_frame,labels_set,flag_list):
     # add aditional info
     cellData['t'] = current_frame
     cellData['track_id'] = active_label
+    cellData['x'] = cellData['centroid-0']
+    cellData['y'] = cellData['centroid-1']
 
     # add necessary tags
     for flag in flag_list:
