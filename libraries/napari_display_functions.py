@@ -515,6 +515,8 @@ def generate_tree_min(paths,df):
 
 
         if (len(sub)>1):
+
+            k=1
             for node in sub[1:]:
 
                 if not(node in node_list):
@@ -522,7 +524,7 @@ def generate_tree_min(paths,df):
                     node_start,node_stop = node_info(node,df)
                     node_life = node_stop-node_start
 
-                    exec(f'n{node}=n{sub[0]}.add_child(name={node},dist={node_life})')
+                    exec(f'n{node}=n{sub[k-1]}.add_child(name={node},dist={node_life})')
                     exec(f'n{node}.add_feature("start", {node_start})')
                     exec(f'n{node}.add_feature("stop", {node_stop})')
                     exec(f'n{node}.add_feature("n", {n})')
@@ -530,6 +532,8 @@ def generate_tree_min(paths,df):
 
                     node_list.append(node)
                     n=n+1
+                
+                k=k+1
 
     return t
 
