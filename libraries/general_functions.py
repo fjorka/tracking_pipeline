@@ -141,8 +141,6 @@ def calculate_frame(im,imSize,x,y):
     y2 = frame - (np.max([im.shape[1],y+frame]) - im.shape[1])
     return x1,x2,y1,y2
 
-
-
 def make_ringImage(single_label_im,x,y,imSize=200):
     
     '''
