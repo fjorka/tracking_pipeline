@@ -62,6 +62,7 @@ def save_update():
     
     if should_i_save():
         
+
         df.to_pickle(os.path.join(exp_dir,'df',df_name))
     
         message = 'Data has been saved.'
@@ -221,9 +222,10 @@ def toggle_track(layer, event):
     
             # change tracks layer
             viewer.layers['Tracking'].data = data
+            viewer.layers['Tracking'].color_by = 'track_id'
             viewer.layers['Tracking'].properties = properties
             viewer.layers['Tracking'].graph = graph 
-            viewer.layers['Tracking'].color_by = 'track_id'     
+                 
             
             ########################################################
             # modify promising tracks

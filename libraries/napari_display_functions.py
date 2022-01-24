@@ -150,8 +150,10 @@ def cut_track(viewer,df,gen_track_columns):
 
     # change tracks layer
     viewer.layers['Tracking'].data = data
+    viewer.layers['Tracking'].color_by = 'track_id'
     viewer.layers['Tracking'].properties = properties
     viewer.layers['Tracking'].graph = graph
+    
 
     #####################################################################
     # change viewer status
@@ -271,6 +273,7 @@ def merge_track(viewer,df,gen_track_columns):
     
             # change tracks layer
             viewer.layers['Tracking'].data = data
+            viewer.layers['Tracking'].color_by = 'track_id'
             viewer.layers['Tracking'].properties = properties
             viewer.layers['Tracking'].graph = graph
             
@@ -371,6 +374,7 @@ def connect_track(viewer,df,gen_track_columns):
     
             # change tracks layer
             viewer.layers['Tracking'].data = data
+            viewer.layers['Tracking'].color_by = 'track_id'
             viewer.layers['Tracking'].properties = properties
             viewer.layers['Tracking'].graph = graph
     
@@ -411,6 +415,7 @@ def update_single_object(viewer,df,channel_list,object_properties,gen_track_colu
 
     # change tracks layer
     viewer.layers['Tracking'].data = data
+    viewer.layers['Tracking'].color_by = 'track_id'
     viewer.layers['Tracking'].properties = properties
     viewer.layers['Tracking'].graph = graph
     

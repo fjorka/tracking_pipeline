@@ -393,6 +393,14 @@ def trackData_from_df(df,col_list=['promise'],create_graph = True):
             
             graph = graph.astype(int)
             graph = dict(graph)
+
+
+            # remove entries that are not available 
+            valid_set=set(data[:,0])
+            rem_list = [x for x in graph.keys() if not(graph[x] in valid_set)]
+            for rem_key in rem_list:
+                graph.pop(rem_key)
+
         else:
             graph = {}
     else:
